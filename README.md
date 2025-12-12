@@ -55,7 +55,7 @@ Supports:
 
 ## 📁 **Files Included**
 
-### **1. `bezier_rope.html`**
+### **1. `index.html`**
 
 The complete implementation containing:
 
@@ -78,7 +78,7 @@ Explains:
 
 ## ▶️ **How to Run**
 
-1. Save the HTML file as `bezier_rope.html`.
+1. Save the HTML file as `index.html`.
 2. Open it in any modern browser:
 
    * Chrome
