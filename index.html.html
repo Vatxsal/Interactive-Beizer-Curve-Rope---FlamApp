@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta http-equiv="content-type" content="text/html; charset=utf-8"/>
+	<title></title>
+	<meta name="generator" content="LibreOffice 25.2.3.2 (Linux)"/>
+	<meta name="created" content="00:00:00"/>
+	<meta name="changed" content="00:00:00"/>
+	<style type="text/css">
+		@page { size: 8.27in 11.69in; margin: 0.79in }
+		p { margin-bottom: 0.1in; line-height: 115%; background: transparent }
+		pre { font-size: 10pt; font-family: "Liberation Mono", monospace; background: transparent }
+	</style>
+</head>
+<body lang="en-US" link="#000080" vlink="#800000" dir="ltr"><pre>&lt;!doctype html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+&lt;meta charset=&quot;utf-8&quot; /&gt;
+&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width,initial-scale=1&quot; /&gt;
+&lt;title&gt;Interactive Cubic Bézier Rope&lt;/title&gt;
+&lt;style&gt;
+  html,body {height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial}
+  #container{display:flex;flex-direction:column;height:100%}
+  canvas{flex:1;display:block;background:linear-gradient(180deg,#0f1226,#111827);cursor:crosshair}
+  #ui{position:absolute;left:12px;top:12px;color:#d1d5db;font-size:13px;background:rgba(0,0,0,0.25);padding:8px;border-radius:8px}
+&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;div id=&quot;container&quot;&gt;
+  &lt;canvas id=&quot;c&quot;&gt;&lt;/canvas&gt;
+  &lt;div id=&quot;ui&quot;&gt;
+    &lt;div&gt;&lt;strong&gt;Interactive Bézier Rope&lt;/strong&gt;&lt;/div&gt;
+    &lt;div id=&quot;fps&quot;&gt;FPS: --&lt;/div&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
+&lt;script&gt;
+// Vector utilities
+class Vec {constructor(x=0,y=0){this.x=x;this.y=y;} copy(){return new Vec(this.x,this.y);} add(v){this.x+=v.x;this.y+=v.y;return this;} sub(v){this.x-=v.x;this.y-=v.y;return this;} mul(s){this.x*=s;this.y*=s;return this;} len(){return Math.hypot(this.x,this.y);} normalized(){let l=this.len();return l?new Vec(this.x/l,this.y/l):new Vec(0,0);}}
+function v(x,y){return new Vec(x,y);} function lerp(a,b,t){return a+(b-a)*t;} function now(){return performance.now();}
+
+// Canvas setup
+const canvas=document.getElementById('c'); const ctx=canvas.getContext('2d'); let DPR=window.devicePixelRatio||1;
+function resize(){DPR=window.devicePixelRatio||1; canvas.width=Math.floor(window.innerWidth*DPR); canvas.height=Math.floor(window.innerHeight*DPR); canvas.style.width=window.innerWidth+'px'; canvas.style.height=window.innerHeight+'px'; ctx.setTransform(DPR,0,0,DPR,0,0);} window.addEventListener('resize',resize); resize();
+
+// Control points
+const margin=80; const P0=v(margin,window.innerHeight/2); const P3=v(window.innerWidth-margin,window.innerHeight/2);
+const dyn={P1:{pos:v(window.innerWidth*0.33,window.innerHeight*0.35),vel:v(0,0),target:v(window.innerWidth*0.33,window.innerHeight*0.35),mass:1}, P2:{pos:v(window.innerWidth*0.66,window.innerHeight*0.65),vel:v(0,0),target:v(window.innerWidth*0.66,window.innerHeight*0.65),mass:1}};
+
+// Physics
+const K=0.02, DAMP=0.12;
+function updatePhysics(dt){for(let k of ['P1','P2']){let o=dyn[k]; let fx=-K*(o.pos.x-o.target.x); let fy=-K*(o.pos.y-o.target.y); let dx=-DAMP*o.vel.x; let dy=-DAMP*o.vel.y; let ax=fx+dx, ay=fy+dy; o.vel.x+=ax*dt; o.vel.y+=ay*dt; o.pos.x+=o.vel.x*dt*60; o.pos.y+=o.vel.y*dt*60;}}
+
+// Interaction
+let mouse={x:0,y:0,down:false}, dragging=null;
+canvas.addEventListener('pointerdown',e=&gt;{let r=canvas.getBoundingClientRect(); let mx=e.clientX-r.left,my=e.clientY-r.top; for(let k of ['P1','P2']){let p=dyn[k].pos; if(Math.hypot(mx-p.x,my-p.y)&lt;18){dragging=k;break;}} mouse.down=true;});
+window.addEventListener('pointerup',()=&gt;{dragging=null;mouse.down=false;});
+canvas.addEventListener('pointermove',e=&gt;{let r=canvas.getBoundingClientRect(); mouse.x=e.clientX-r.left; mouse.y=e.clientY-r.top; if(dragging){let o=dyn[dragging]; o.pos.x=mouse.x; o.pos.y=mouse.y; o.vel.x=o.vel.y=0; o.target.x=mouse.x; o.target.y=mouse.y;} else {dyn.P1.target.x=lerp(dyn.P1.target.x,mouse.x*0.8,0.08); dyn.P1.target.y=lerp(dyn.P1.target.y,mouse.y*0.6,0.08); dyn.P2.target.x=lerp(dyn.P2.target.x,mouse.x*0.9,0.06); dyn.P2.target.y=lerp(dyn.P2.target.y,mouse.y*1.1,0.06);}});
+
+// Bézier math
+function cubicPoint(t,P0,P1,P2,P3){let u=1-t; return v(u*u*u*P0.x +3*u*u*t*P1.x +3*u*t*t*P2.x +t*t*t*P3.x, u*u*u*P0.y +3*u*u*t*P1.y +3*u*t*t*P2.y +t*t*t*P3.y);} 
+function cubicTangent(t,P0,P1,P2,P3){let u=1-t; return v(3*u*u*(P1.x-P0.x)+6*u*t*(P2.x-P1.x)+3*t*t*(P3.x-P2.x), 3*u*u*(P1.y-P0.y)+6*u*t*(P2.y-P1.y)+3*t*t*(P3.y-P2.y));}
+
+// Drawing
+function draw(){ctx.clearRect(0,0,canvas.width,canvas.height); let P1=dyn.P1.pos, P2=dyn.P2.pos; let pts=[]; for(let t=0;t&lt;=1;t+=0.01) pts.push(cubicPoint(t,P0,P1,P2,P3)); ctx.lineWidth=4; ctx.strokeStyle='rgba(96,165,250,0.9)'; ctx.beginPath(); pts.forEach((p,i)=&gt;{if(i===0)ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y);}); ctx.stroke();}
+
+// Loop
+let last=now(); function frame(){let t=now(),dt=(t-last)/1000; last=t; updatePhysics(dt); draw(); requestAnimationFrame(frame);} frame();
+&lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</pre>
+</body>
+</html>
